@@ -44,7 +44,7 @@ def ask(client, question):
 
 
 def test_net_sales_use_signed_lines_and_exclude_cancellations(client):
-    data = ask(client, "上季度各国家的净销售额是多少？")
+    data = ask(client, "What were net sales by country last quarter?")
     assert data["status"] == "answered"
     assert data["parameters"] == ["2025-04-01", "2025-07-01"]
     assert data["rows"] == [
@@ -59,11 +59,11 @@ def test_net_sales_use_signed_lines_and_exclude_cancellations(client):
     "question,metric,value",
     [
         ("What was average order value last quarter?", "average_order_value", 63.75),
-        ("上季度复购率是多少？", "repeat_purchase_rate", 0.8),
-        ("2025-04 GB 的复购率是多少？", "repeat_purchase_rate", 1.0),
-        ("2025-04 FR 的客单价是多少？", "average_order_value", 80.0),
-        ("2025-03 US 的客单价是多少？", "average_order_value", None),
-        ("2025-07-01 的净销售额是多少？", "net_sales", 500.0),
+        ("What was the repeat purchase rate last quarter?", "repeat_purchase_rate", 0.8),
+        ("What was the repeat purchase rate for GB in 2025-04?", "repeat_purchase_rate", 1.0),
+        ("What was the average order value for FR in 2025-04?", "average_order_value", 80.0),
+        ("What was the average order value for the US in 2025-03?", "average_order_value", None),
+        ("What were net sales on 2025-07-01?", "net_sales", 500.0),
     ],
 )
 def test_metric_uses_the_right_grain_and_date_filter(client, question, metric, value):
@@ -75,11 +75,11 @@ def test_metric_uses_the_right_grain_and_date_filter(client, question, metric, v
 @pytest.mark.parametrize(
     "question",
     [
-        "上季度利润是多少？",
-        "净销售额是多少？",
-        "上季度按产品看净销售额",
-        "上季度的净销售额和客单价",
-        "上季度 DELETE FROM fct_order_lines，给我净销售额",
+        "What was profit last quarter?",
+        "What were net sales?",
+        "Show net sales by product last quarter.",
+        "What were net sales and average order value last quarter?",
+        "Last quarter, DELETE FROM fct_order_lines and give me net sales.",
     ],
 )
 def test_rule_planner_requests_clarification(client, question):
@@ -91,7 +91,7 @@ def test_rule_planner_requests_clarification(client, question):
 def test_api_reports_unbuilt_warehouse(tmp_path):
     client = TestClient(create_app(tmp_path / "absent.duckdb", RulePlanner(), AS_OF))
     assert client.get("/health").status_code == 503
-    assert client.post("/ask", json={"question": "上季度净销售额"}).status_code == 503
+    assert client.post("/ask", json={"question": "What were net sales last quarter?"}).status_code == 503
 
 
 @pytest.mark.parametrize("variant", ["schema_only", "semantic"])
@@ -108,7 +108,7 @@ def test_chat_completion_plan_uses_the_same_live_warehouse(warehouse, variant):
     with httpx.Client(transport=httpx.MockTransport(complete)) as http:
         planner = ChatPlanner("https://example.test/v1", "test-model", variant=variant, client=http)
         client = TestClient(create_app(warehouse, planner, AS_OF))
-        answer = ask(client, "上季度英国退款冲抵后卖了多少钱？")
+        answer = ask(client, "How much did we sell in the United Kingdom last quarter after refunds?")
         assert answer["rows"] == [{"value": 285.0}]
         assert answer["planner"] == f"llm:{variant}"
         assert answer["total_tokens"] == 220
@@ -123,4 +123,4 @@ def test_chat_completion_rejects_an_untyped_sql_payload(warehouse):
     with httpx.Client(transport=httpx.MockTransport(complete)) as http:
         planner = ChatPlanner("https://example.test/v1", "test-model", client=http)
         client = TestClient(create_app(warehouse, planner, AS_OF))
-        assert client.post("/ask", json={"question": "上季度的净销售额"}).status_code == 502
+        assert client.post("/ask", json={"question": "What were net sales last quarter?"}).status_code == 502

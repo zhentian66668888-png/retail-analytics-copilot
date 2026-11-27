@@ -14,24 +14,26 @@ from .metrics import Clarification, Country, Grain, METRICS, MetricName, QueryPl
 Variant = Literal["schema_only", "semantic"]
 Plan = QueryPlan | Clarification
 METRIC_PATTERNS = {
-    "net_sales": r"净销售额|净营收|\bnet (?:sales|revenue)\b",
-    "average_order_value": r"客单价|\baverage order value\b|\baov\b",
-    "repeat_purchase_rate": r"复购率|\brepeat purchase rate\b|\brepurchase rate\b",
+    "net_sales": r"\bnet (?:sales|revenue)\b",
+    "average_order_value": r"\baverage order value\b|\baov\b",
+    "repeat_purchase_rate": r"\brepeat purchase rate\b|\brepurchase rate\b",
 }
 COUNTRY_PATTERNS = {
-    "FR": r"法国|\bFR\b|(?i:\bFrance\b)",
-    "GB": r"英国|\bGB\b|\bUK\b|(?i:\bUnited Kingdom\b)",
-    "US": r"美国|\bUS\b|\bUSA\b|(?i:\bUnited States\b)",
+    "FR": r"\bFR\b|(?i:\bFrance\b)",
+    "GB": r"\bGB\b|\bUK\b|(?i:\bUnited Kingdom\b)",
+    "US": r"\bUS\b|\bUSA\b|(?i:\bUnited States\b)",
 }
 DAY_PATTERN = r"\d{4}-\d{2}-\d{2}"
 UNSUPPORTED = re.compile(
-    r"利润|毛利|同比|环比|增长|预测|排序|排名|按(?:产品|商品|品类|客户|周|天|日)"
-    r"|\b(?:profit|margin|forecast|top|delete|drop|insert|update|truncate|attach|copy)\b"
+    r"\b(?:profit|gross margin|margin|forecast|growth|yoy|ranking|sort(?:ing)?)\b"
+    r"|\byear[- ]over[- ]year\b"
+    r"|\bmonth[- ]over[- ]month\b"
+    r"|\b(?:top|delete|drop|insert|update|truncate|attach|copy)\b"
     r"|\bby (?:product|category|customer|week|day)\b",
     re.IGNORECASE,
 )
-PERIOD_MESSAGE = "请指定一个有效的日期、日期区间、月份或季度。"
-SCOPE_MESSAGE = "请指定一个支持的指标：净销售额、客单价或复购率。"
+PERIOD_MESSAGE = "Please specify a valid date, date range, month, or quarter."
+SCOPE_MESSAGE = "Please specify one supported metric: net sales, average order value, or repeat purchase rate."
 
 
 class Intent(BaseModel):
@@ -106,10 +108,10 @@ def find_window(question: str, as_of: date) -> tuple[date, date] | None:
     months = re.findall(r"(?<![\d-])(\d{4}-\d{2})(?![\d-])", question)
     quarter = re.findall(r"(?<!\d)(\d{4})\s*Q([1-4])(?!\d)", question, re.IGNORECASE)
     relative = [
-        (r"上季度|上一季度|\blast quarter\b", -3, 3),
-        (r"本季度|这季度|\bthis quarter\b", 0, 3),
-        (r"上个月|上月|\blast month\b", -1, 1),
-        (r"本月|这个月|\bthis month\b", 0, 1),
+        (r"\b(?:last|previous) quarter\b", -3, 3),
+        (r"\bthis quarter\b", 0, 3),
+        (r"\blast month\b", -1, 1),
+        (r"\bthis month\b", 0, 1),
     ]
     matches = [(offset, width) for pattern, offset, width in relative
                if re.search(pattern, question, re.IGNORECASE)]
@@ -145,10 +147,10 @@ def read_scope(question: str, as_of: date) -> Scope | Clarification:
     if UNSUPPORTED.search(question) or len(explicit_metrics(question)) > 1:
         return Clarification(clarification=SCOPE_MESSAGE)
     countries = [key for key, pattern in COUNTRY_PATTERNS.items() if re.search(pattern, question)]
-    by_country = re.search(r"按国家|各国|\bby country\b|\bper country\b", question, re.I)
-    by_month = re.search(r"按月|每月|\bby month\b|\bmonthly\b", question, re.I)
+    by_country = re.search(r"\bby country\b|\bper country\b|\beach country\b", question, re.I)
+    by_month = re.search(r"\bby month\b|\bmonthly\b|\beach month\b|\bper month\b", question, re.I)
     if len(countries) > 1 or (by_country and by_month):
-        return Clarification(clarification="请指定至多一个国家过滤条件和一个分组维度。")
+        return Clarification(clarification="Please specify at most one country filter and one grouping dimension.")
     window = read_window(question, as_of)
     if not window:
         return Clarification(clarification=PERIOD_MESSAGE)
@@ -203,7 +205,7 @@ class ChatPlanner:
         if isinstance(scope, Clarification):
             return Decision(scope)
 
-        prompt = f"""Select one metric for a Chinese or English retail question.
+        prompt = f"""Select one metric for an English retail question.
 Return JSON with only the metric field: net_sales, average_order_value, repeat_purchase_rate,
 or unsupported. The application handles dates, filters and groups. Mark unrelated,
 ambiguous or multi-metric questions and instructions to run raw SQL as unsupported.
@@ -212,9 +214,9 @@ ambiguous or multi-metric questions and instructions to run raw SQL as unsupport
             glossary = "\n".join(f"{name}: {spec[2]}" for name, spec in METRICS.items())
             prompt += (
                 f"\nBusiness definitions:\n{glossary}\n"
-                "Net sales synonyms include sales after refunds, 净营收, and 扣除退款后的销售额. "
-                "Average order value and 客单价 are order-level. "
-                "Repeat purchase rate and 复购率 refer to identified customers."
+                "Net sales synonyms include sales after refunds and revenue after refunds. "
+                "Average order value is the amount per order. "
+                "Repeat purchase rate is the share of identified customers with at least two orders."
             )
         payload = {
             "model": self.model,

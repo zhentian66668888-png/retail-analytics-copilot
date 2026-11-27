@@ -12,17 +12,17 @@ Country = Literal["FR", "GB", "US"]
 METRICS = {
     "net_sales": (
         "USD",
-        "按事件发生日期汇总，销售为正，退款为负，取消为零。匿名订单计入。",
+        "Summed by event date: sales are positive, refunds are negative, and cancellations are zero. Guest orders are included.",
         "Sum sales less refunds by event date. Exclude cancellations and include guest orders.",
     ),
     "average_order_value": (
         "USD",
-        "期间净销售额除以期间有销售事件的不同订单数。退款按发生日冲减，匿名订单计入。",
+        "Period net sales divided by the number of distinct orders with a sale in the period. Refunds reduce the amount on the event date. Guest orders are included.",
         "Divide period net sales by distinct orders with a sale in the period. Include guest orders.",
     ),
     "repeat_purchase_rate": (
         "ratio",
-        "期间至少下两笔不同订单的已识别客户数，除以期间至少下一笔订单的已识别客户数。",
+        "Identified customers with at least two distinct orders in the period, divided by identified customers with at least one order in the period.",
         "Share of identified purchasing customers with at least two distinct sale orders in the period.",
     ),
 }
