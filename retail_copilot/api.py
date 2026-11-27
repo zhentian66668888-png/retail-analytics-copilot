@@ -14,7 +14,7 @@ from .service import DEMO_AS_OF, answer, connect
 
 class Question(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    question: str = Field(min_length=1, max_length=500, examples=["上季度各国家的净销售额是多少？"])
+    question: str = Field(min_length=1, max_length=500, examples=["What were net sales by country last quarter?"])
 
     @field_validator("question", mode="before")
     @classmethod
