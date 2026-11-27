@@ -1,0 +1,23 @@
+name: retail
+version: "1.0.0"
+config-version: 2
+profile: retail
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+models:
+  retail:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table
+seeds:
+  retail:
+    raw_order_events:
+      +column_types:
+        line_id: varchar
+        order_id: varchar
+        customer_id: varchar
+        country_code: varchar
+        event_type: varchar
+        unit_price_usd: "decimal(12,2)"

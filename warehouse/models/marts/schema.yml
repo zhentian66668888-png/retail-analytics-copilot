@@ -1,0 +1,43 @@
+version: 2
+models:
+  - name: fct_order_lines
+    description: One row per source order-line event, including refunds and cancellations.
+    columns:
+      - name: line_id
+        data_tests: [unique, not_null]
+      - name: order_id
+        data_tests: [not_null]
+      - name: event_date
+        data_tests: [not_null]
+      - name: event_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [sale, refund, cancelled]
+      - name: net_amount_usd
+        data_tests: [not_null]
+      - name: country_code
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_countries')
+                field: country_code
+      - name: customer_id
+        description: Null for guest purchases.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+  - name: dim_countries
+    description: One row per billing country code.
+    columns:
+      - name: country_code
+        data_tests: [unique, not_null]
+  - name: dim_customers
+    description: One row per known customer and their first observed sale date.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
